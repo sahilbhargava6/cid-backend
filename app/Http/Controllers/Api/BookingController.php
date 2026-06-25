@@ -14,7 +14,7 @@ class BookingController extends Controller
         $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
 
         if ($isAdmin) {
-            $tickets = OperationalTicket::with(['organization', 'assignee'])
+            $tickets = OperationalTicket::with(['organization', 'assignee', 'user'])
                 ->latest()
                 ->get();
         } else {
@@ -55,7 +55,7 @@ class BookingController extends Controller
         $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
 
         if ($isAdmin) {
-            $ticket = OperationalTicket::with(['organization', 'assignee', 'documents'])
+            $ticket = OperationalTicket::with(['organization', 'assignee', 'documents', 'user'])
                 ->findOrFail($id);
         } else {
             $ticket = $user->tickets()
