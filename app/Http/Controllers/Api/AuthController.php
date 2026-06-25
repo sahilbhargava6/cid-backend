@@ -81,4 +81,14 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
+    public function index(Request $request)
+    {
+        if ($request->user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $users = User::orderBy('id', 'desc')->get();
+        return response()->json($users);
+    }
 }
