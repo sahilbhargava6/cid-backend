@@ -11,7 +11,7 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
+        $isAdmin = $user->role === 'admin' || $user->role === 'owner';
 
         if ($isAdmin) {
             $tickets = OperationalTicket::with(['organization', 'assignee', 'user'])
@@ -52,7 +52,7 @@ class BookingController extends Controller
     public function show(Request $request, $id)
     {
         $user = $request->user();
-        $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
+        $isAdmin = $user->role === 'admin' || $user->role === 'owner';
 
         if ($isAdmin) {
             $ticket = OperationalTicket::with(['organization', 'assignee', 'documents', 'user'])
@@ -69,7 +69,7 @@ class BookingController extends Controller
     public function update(Request $request, $id)
     {
         $user = $request->user();
-        $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
+        $isAdmin = $user->role === 'admin' || $user->role === 'owner';
 
         if ($isAdmin) {
             $ticket = OperationalTicket::findOrFail($id);

@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'CID Admin',
             'email' => 'admin@consideritdone.com',
             'password' => bcrypt('Password123'),
+            'role' => 'admin',
             'email_verified_at' => now(),
         ]);
 
@@ -28,6 +29,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'John Client',
             'email' => 'client@example.com',
             'password' => bcrypt('Password123'),
+            'role' => 'client',
             'email_verified_at' => now(),
         ]);
 
