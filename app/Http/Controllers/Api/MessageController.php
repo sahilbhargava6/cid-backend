@@ -51,8 +51,8 @@ class MessageController extends Controller
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $attachmentName = $file->getClientOriginalName();
-            // Store file using Laravel default disk (S3 in production, public locally)
-            $attachmentPath = $file->store('chat-attachments');
+            // Store file using Laravel public disk
+            $attachmentPath = $file->store('chat-attachments', 'public');
         }
 
         $message = Message::create([
