@@ -10,10 +10,19 @@ class BookingController extends Controller
 {
     public function index(Request $request)
     {
-        $tickets = $request->user()->tickets()
-            ->with(['organization', 'assignee'])
-            ->latest()
-            ->get();
+        $user = $request->user();
+        $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
+
+        if ($isAdmin) {
+            $tickets = OperationalTicket::with(['organization', 'assignee'])
+                ->latest()
+                ->get();
+        } else {
+            $tickets = $user->tickets()
+                ->with(['organization', 'assignee'])
+                ->latest()
+                ->get();
+        }
 
         return response()->json($tickets);
     }
@@ -21,7 +30,7 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'service_type' => 'required|string|in:tax_prep,bookkeeping,solar,small_business,procurement',
+            'service_type' => 'required|string|in:tax_prep,virtual_bookkeeping,solar,accounts_and_logistics,procurement,tax_preparation',
             'scheduled_at' => 'nullable|date',
             'organization_id' => 'nullable|exists:organizations,id',
             'input_parameters' => 'required|array',
@@ -42,16 +51,31 @@ class BookingController extends Controller
 
     public function show(Request $request, $id)
     {
-        $ticket = $request->user()->tickets()
-            ->with(['organization', 'assignee', 'documents'])
-            ->findOrFail($id);
+        $user = $request->user();
+        $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
+
+        if ($isAdmin) {
+            $ticket = OperationalTicket::with(['organization', 'assignee', 'documents'])
+                ->findOrFail($id);
+        } else {
+            $ticket = $user->tickets()
+                ->with(['organization', 'assignee', 'documents'])
+                ->findOrFail($id);
+        }
 
         return response()->json($ticket);
     }
 
     public function update(Request $request, $id)
     {
-        $ticket = $request->user()->tickets()->findOrFail($id);
+        $user = $request->user();
+        $isAdmin = str_contains($user->email, 'admin') || str_contains($user->email, 'owner');
+
+        if ($isAdmin) {
+            $ticket = OperationalTicket::findOrFail($id);
+        } else {
+            $ticket = $user->tickets()->findOrFail($id);
+        }
 
         $request->validate([
             'input_parameters' => 'nullable|array',
