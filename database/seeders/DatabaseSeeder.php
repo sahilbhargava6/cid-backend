@@ -17,16 +17,18 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        $admin = User::factory()->create([
+        $admin = User::create([
             'name' => 'CID Admin',
             'email' => 'admin@consideritdone.com',
             'password' => bcrypt('Password123'),
+            'email_verified_at' => now(),
         ]);
 
-        $client = User::factory()->create([
+        $client = User::create([
             'name' => 'John Client',
             'email' => 'client@example.com',
             'password' => bcrypt('Password123'),
+            'email_verified_at' => now(),
         ]);
 
         // Mock Bookings / Tickets
