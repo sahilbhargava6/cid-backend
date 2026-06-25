@@ -79,13 +79,24 @@ class BookingController extends Controller
 
         $request->validate([
             'input_parameters' => 'nullable|array',
+            'status' => 'nullable|string|in:pending,in_progress,completed,cancelled',
+            'payment_status' => 'nullable|string|in:unpaid,partial,paid',
+            'price' => 'nullable|numeric',
         ]);
 
         if ($request->has('input_parameters')) {
-            $ticket->update([
-                'input_parameters' => array_merge($ticket->input_parameters ?? [], $request->input_parameters),
-            ]);
+            $ticket->input_parameters = array_merge($ticket->input_parameters ?? [], $request->input_parameters);
         }
+        if ($request->has('status')) {
+            $ticket->status = $request->status;
+        }
+        if ($request->has('payment_status')) {
+            $ticket->payment_status = $request->payment_status;
+        }
+        if ($request->has('price')) {
+            $ticket->price = $request->price;
+        }
+        $ticket->save();
 
         return response()->json($ticket);
     }
