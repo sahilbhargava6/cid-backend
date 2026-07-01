@@ -23,7 +23,7 @@ class ContactController extends Controller
 
         try {
             $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
-            $adminEmail = !empty($admins) ? $admins : 'admin@consideritdone.com';
+            $adminEmail = !empty($admins) ? $admins : 'info@consider-itdone.com';
 
             Mail::raw(
                 "Hello Admin,\n\n" .
