@@ -46,6 +46,34 @@ class BookingController extends Controller
             'input_parameters' => $request->input_parameters,
         ]);
 
+        // Send Email Notification to Admin
+        try {
+            $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
+            $adminEmail = !empty($admins) ? $admins : 'admin@consideritdone.com';
+            
+            $user = $request->user();
+            $serviceName = ucwords(str_replace('_', ' ', $ticket->service_type));
+            
+            \Illuminate\Support\Facades\Mail::raw(
+                "Hello Admin,\n\n" .
+                "A new booking has been placed on consider-itdone.\n\n" .
+                "Booking Details:\n" .
+                "- Booking ID: #{$ticket->id}\n" .
+                "- Service: {$serviceName}\n" .
+                "- Scheduled At: " . ($ticket->scheduled_at ?? 'N/A') . "\n" .
+                "- Client Name: {$user->name}\n" .
+                "- Client Email: {$user->email}\n\n" .
+                "Please log in to the admin panel to review and manage this booking.\n\n" .
+                "Best regards,\nconsider-itdone Notification System",
+                function ($message) use ($adminEmail) {
+                    $message->to($adminEmail)
+                            ->subject('New Booking Received - consider-itdone');
+                }
+            );
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send booking notification email: ' . $e->getMessage());
+        }
+
         return response()->json($ticket, 201);
     }
 

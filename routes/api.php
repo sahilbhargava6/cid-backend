@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\WebhookController;
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/contact', [\App\Http\Controllers\Api\ContactController::class, 'submit']);
 });
 
 // Public Webhooks (Rate Limited to prevent spam)
