@@ -128,4 +128,19 @@ class BookingController extends Controller
 
         return response()->json($ticket);
     }
+
+    public function destroy(Request $request, $id)
+    {
+        $user = $request->user();
+        $isAdmin = $user->role === 'admin' || $user->role === 'owner';
+
+        if (!$isAdmin) {
+            return response()->json(['message' => 'Unauthorized. Only admins can delete bookings.'], 403);
+        }
+
+        $ticket = OperationalTicket::findOrFail($id);
+        $ticket->delete();
+
+        return response()->json(['message' => 'Booking deleted successfully.']);
+    }
 }
