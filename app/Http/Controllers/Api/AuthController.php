@@ -91,4 +91,21 @@ class AuthController extends Controller
         $users = User::orderBy('id', 'desc')->get();
         return response()->json($users);
     }
+
+    public function destroy(Request $request, $id)
+    {
+        if ($request->user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $user = User::findOrFail($id);
+        
+        // Prevent admin from deleting themselves
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'Cannot delete your own account.'], 400);
+        }
+
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully.']);
+    }
 }

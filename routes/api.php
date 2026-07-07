@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/users', [AuthController::class, 'index']);
+    Route::delete('/users/{id}', [AuthController::class, 'destroy']);
 
     // Bookings / Operational Tickets
     Route::apiResource('bookings', BookingController::class);
