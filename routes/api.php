@@ -30,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Bookings / Operational Tickets
     Route::apiResource('bookings', BookingController::class);
+    Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
 
     // Document Management
     Route::post('/documents', [DocumentController::class, 'store']);

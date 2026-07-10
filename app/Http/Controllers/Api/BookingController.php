@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\OperationalTicket;
 use Illuminate\Http\Request;
+use Stripe\Stripe;
+use Stripe\Checkout\Session;
 
 class BookingController extends Controller
 {
@@ -142,5 +144,55 @@ class BookingController extends Controller
         $ticket->delete();
 
         return response()->json(['message' => 'Booking deleted successfully.']);
+    }
+
+    public function checkout(Request $request, $id)
+    {
+        $user = $request->user();
+        
+        // Find ticket ensuring it belongs to user
+        $ticket = $user->tickets()->findOrFail($id);
+
+        if ($ticket->payment_status === 'paid') {
+            return response()->json(['error' => 'This booking is already paid.'], 400);
+        }
+
+        if (!$ticket->price || $ticket->price <= 0) {
+            return response()->json(['error' => 'Price has not been set for this booking yet. Please wait for the admin to review.'], 400);
+        }
+
+        $stripeSecret = config('services.stripe.secret');
+        if (!$stripeSecret) {
+            return response()->json(['error' => 'Stripe is not configured on the server.'], 500);
+        }
+
+        Stripe::setApiKey($stripeSecret);
+
+        $serviceName = ucwords(str_replace('_', ' ', $ticket->service_type));
+
+        $session = Session::create([
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => 'usd',
+                    'product_data' => [
+                        'name' => 'Consider it Done - ' . $serviceName,
+                        'description' => 'Booking #' . $ticket->id,
+                    ],
+                    'unit_amount' => (int) ($ticket->price * 100), // Convert dollars to cents
+                ],
+                'quantity' => 1,
+            ]],
+            'mode' => 'payment',
+            'success_url' => config('app.frontend_url', 'http://localhost:3000') . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => config('app.frontend_url', 'http://localhost:3000') . '/payment/cancel',
+            'client_reference_id' => $user->id,
+            'metadata' => [
+                'operational_ticket_id' => $ticket->id,
+            ],
+            'customer_email' => $user->email,
+        ]);
+
+        return response()->json(['url' => $session->url]);
     }
 }
