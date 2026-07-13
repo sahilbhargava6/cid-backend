@@ -43,9 +43,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Document Management
     Route::post('/documents', [DocumentController::class, 'store']);
     Route::get('/documents', [DocumentController::class, 'index']);
-    Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
 
     // Live Chat Messages
     Route::get('/bookings/{id}/messages', [\App\Http\Controllers\Api\MessageController::class, 'index']);
     Route::post('/bookings/{id}/messages', [\App\Http\Controllers\Api\MessageController::class, 'store']);
 });
+
+// Decryption download endpoints (handles manual token verification in controller for direct link/iframe access)
+Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
+Route::get('/messages/{id}/attachment', [\App\Http\Controllers\Api\MessageController::class, 'downloadAttachment']);

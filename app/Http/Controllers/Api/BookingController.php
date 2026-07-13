@@ -32,18 +32,26 @@ class BookingController extends Controller
     public function slots(Request $request)
     {
         $date = $request->query('date');
+        $timezone = $request->query('timezone') ?? 'UTC';
         if (!$date) {
             return response()->json([]);
         }
 
+        try {
+            $start = \Carbon\Carbon::createFromFormat('Y-m-d', $date, $timezone)->startOfDay()->setTimezone('UTC');
+            $end = \Carbon\Carbon::createFromFormat('Y-m-d', $date, $timezone)->endOfDay()->setTimezone('UTC');
+        } catch (\Exception $e) {
+            return response()->json([]);
+        }
+
         // Get all tickets on that date that aren't cancelled
-        $tickets = OperationalTicket::whereDate('scheduled_at', $date)
+        $tickets = OperationalTicket::whereBetween('scheduled_at', [$start, $end])
             ->whereNotIn('status', ['cancelled'])
             ->get(['scheduled_at']);
 
-        // Format to 'h:i A' to match the frontend time slot strings
-        $bookedSlots = $tickets->map(function($ticket) {
-            return date('h:i A', strtotime($ticket->scheduled_at));
+        // Convert back to client's timezone and format to 'h:i A'
+        $bookedSlots = $tickets->map(function($ticket) use ($timezone) {
+            return $ticket->scheduled_at->setTimezone($timezone)->format('h:i A');
         })->unique()->values();
 
         return response()->json($bookedSlots);
@@ -57,10 +65,24 @@ class BookingController extends Controller
             'organization_id' => 'nullable|exists:organizations,id',
             'input_parameters' => 'required|array',
             'price' => 'nullable|numeric',
+            'timezone' => 'nullable|string',
         ]);
 
+        $timezone = $request->timezone ?? 'UTC';
+        $scheduledAtUtc = null;
         if ($request->scheduled_at) {
-            $existing = OperationalTicket::where('scheduled_at', $request->scheduled_at)->exists();
+            try {
+                $scheduledAtUtc = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $request->scheduled_at, $timezone)
+                    ->setTimezone('UTC');
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Invalid date format.'], 400);
+            }
+        }
+
+        if ($scheduledAtUtc) {
+            $existing = OperationalTicket::where('scheduled_at', $scheduledAtUtc)
+                ->whereNotIn('status', ['cancelled'])
+                ->exists();
             if ($existing) {
                 return response()->json(['message' => 'This time slot is already booked. Please choose another time.'], 422);
             }
@@ -70,11 +92,13 @@ class BookingController extends Controller
             'user_id' => $request->user()->id,
             'organization_id' => $request->organization_id,
             'service_type' => $request->service_type,
-            'scheduled_at' => $request->scheduled_at,
+            'scheduled_at' => $scheduledAtUtc,
             'status' => 'pending',
             'payment_status' => 'unpaid',
             'price' => $request->price,
             'input_parameters' => $request->input_parameters,
+            'timezone' => $timezone,
+            'milestone' => 'Drafting',
         ]);
 
         // Send Email Notification to Admin
@@ -141,19 +165,26 @@ class BookingController extends Controller
             'status' => 'nullable|string|in:pending,in_progress,completed,cancelled',
             'payment_status' => 'nullable|string|in:unpaid,partial,paid',
             'price' => 'nullable|numeric',
+            'milestone' => 'nullable|string|in:Drafting,Review,Filing,Completed',
         ]);
 
         if ($request->has('input_parameters')) {
             $ticket->input_parameters = array_merge($ticket->input_parameters ?? [], $request->input_parameters);
         }
-        if ($request->has('status')) {
-            $ticket->status = $request->status;
-        }
-        if ($request->has('payment_status')) {
-            $ticket->payment_status = $request->payment_status;
-        }
-        if ($request->has('price')) {
-            $ticket->price = $request->price;
+        
+        if ($isAdmin) {
+            if ($request->has('status')) {
+                $ticket->status = $request->status;
+            }
+            if ($request->has('payment_status')) {
+                $ticket->payment_status = $request->payment_status;
+            }
+            if ($request->has('price')) {
+                $ticket->price = $request->price;
+            }
+            if ($request->has('milestone')) {
+                $ticket->milestone = $request->milestone;
+            }
         }
         $ticket->save();
 

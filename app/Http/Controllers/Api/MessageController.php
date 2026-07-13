@@ -51,8 +51,13 @@ class MessageController extends Controller
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $attachmentName = $file->getClientOriginalName();
-            // Store file using Laravel public disk
-            $attachmentPath = $file->store('chat-attachments', 'public');
+            
+            $filename = uniqid() . '_' . $file->getClientOriginalName() . '.enc';
+            $attachmentPath = 'chat-attachments/' . $filename;
+            
+            // Encrypt and store the file
+            $encryptedContents = \Illuminate\Support\Facades\Crypt::encrypt(file_get_contents($file->getRealPath()));
+            Storage::disk('public')->put($attachmentPath, $encryptedContents);
         }
 
         $message = Message::create([
@@ -67,5 +72,43 @@ class MessageController extends Controller
         $message->load('user');
 
         return response()->json($message, 201);
+    }
+
+    public function downloadAttachment(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!$user && $request->has('token')) {
+            $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($request->token);
+            if ($tokenModel) {
+                $user = $tokenModel->tokenable;
+            }
+        }
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $message = Message::findOrFail($id);
+        
+        // Ensure user belongs to the ticket
+        $isAdmin = $user->role === 'admin' || $user->role === 'owner';
+        if (!$isAdmin && $message->ticket->user_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if (!$message->attachment_path || !Storage::disk('public')->exists($message->attachment_path)) {
+            return response()->json(['message' => 'Attachment not found'], 404);
+        }
+
+        $encryptedContents = Storage::disk('public')->get($message->attachment_path);
+        try {
+            $decryptedContents = \Illuminate\Support\Facades\Crypt::decrypt($encryptedContents);
+        } catch (\Exception $e) {
+            $decryptedContents = $encryptedContents;
+        }
+
+        return response()->streamDownload(function () use ($decryptedContents) {
+            echo $decryptedContents;
+        }, $message->attachment_name);
     }
 }

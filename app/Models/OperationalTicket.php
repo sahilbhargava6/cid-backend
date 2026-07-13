@@ -19,6 +19,8 @@ class OperationalTicket extends Model
         'payment_status',
         'price',
         'input_parameters',
+        'timezone',
+        'milestone',
     ];
 
     protected $casts = [

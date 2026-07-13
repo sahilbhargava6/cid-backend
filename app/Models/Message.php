@@ -21,7 +21,7 @@ class Message extends Model
     public function getAttachmentUrlAttribute()
     {
         if ($this->attachment_path) {
-            return Storage::url($this->attachment_path);
+            return url('/api/messages/' . $this->id . '/attachment');
         }
         return null;
     }
