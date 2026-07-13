@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\WebhookController;
+use App\Http\Controllers\Api\SettingsController;
 
 // Public Auth Endpoints (Rate Limited to prevent brute force)
 Route::middleware('throttle:10,1')->group(function () {
@@ -21,12 +22,19 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::post('/webhooks/stripe', [WebhookController::class, 'stripe']);
 });
 
+Route::get('/bookings/slots', [BookingController::class, 'slots']);
+
+Route::get('/settings/{key}', [SettingsController::class, 'show']);
+
 // Protected Client Routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/users', [AuthController::class, 'index']);
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
+
+    // Site Settings
+    Route::post('/settings/{key}', [SettingsController::class, 'update']);
 
     // Bookings / Operational Tickets
     Route::apiResource('bookings', BookingController::class);

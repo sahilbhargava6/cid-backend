@@ -29,6 +29,26 @@ class BookingController extends Controller
         return response()->json($tickets);
     }
 
+    public function slots(Request $request)
+    {
+        $date = $request->query('date');
+        if (!$date) {
+            return response()->json([]);
+        }
+
+        // Get all tickets on that date that aren't cancelled
+        $tickets = OperationalTicket::whereDate('scheduled_at', $date)
+            ->whereNotIn('status', ['cancelled'])
+            ->get(['scheduled_at']);
+
+        // Format to 'h:i A' to match the frontend time slot strings
+        $bookedSlots = $tickets->map(function($ticket) {
+            return date('h:i A', strtotime($ticket->scheduled_at));
+        })->unique()->values();
+
+        return response()->json($bookedSlots);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -36,7 +56,15 @@ class BookingController extends Controller
             'scheduled_at' => 'nullable|date',
             'organization_id' => 'nullable|exists:organizations,id',
             'input_parameters' => 'required|array',
+            'price' => 'nullable|numeric',
         ]);
+
+        if ($request->scheduled_at) {
+            $existing = OperationalTicket::where('scheduled_at', $request->scheduled_at)->exists();
+            if ($existing) {
+                return response()->json(['message' => 'This time slot is already booked. Please choose another time.'], 422);
+            }
+        }
 
         $ticket = OperationalTicket::create([
             'user_id' => $request->user()->id,
@@ -45,6 +73,7 @@ class BookingController extends Controller
             'scheduled_at' => $request->scheduled_at,
             'status' => 'pending',
             'payment_status' => 'unpaid',
+            'price' => $request->price,
             'input_parameters' => $request->input_parameters,
         ]);
 
@@ -170,29 +199,34 @@ class BookingController extends Controller
 
         $serviceName = ucwords(str_replace('_', ' ', $ticket->service_type));
 
-        $session = Session::create([
-            'payment_method_types' => ['card'],
-            'line_items' => [[
-                'price_data' => [
-                    'currency' => 'usd',
-                    'product_data' => [
-                        'name' => 'Consider it Done - ' . $serviceName,
-                        'description' => 'Booking #' . $ticket->id,
+        try {
+            $session = Session::create([
+                'payment_method_types' => ['card'],
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => 'usd',
+                        'product_data' => [
+                            'name' => 'Consider it Done - ' . $serviceName,
+                            'description' => 'Booking #' . $ticket->id,
+                        ],
+                        'unit_amount' => (int) ($ticket->price * 100), // Convert dollars to cents
                     ],
-                    'unit_amount' => (int) ($ticket->price * 100), // Convert dollars to cents
+                    'quantity' => 1,
+                ]],
+                'mode' => 'payment',
+                'success_url' => config('app.frontend_url', 'http://localhost:3000') . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => config('app.frontend_url', 'http://localhost:3000') . '/payment/cancel',
+                'client_reference_id' => $user->id,
+                'metadata' => [
+                    'operational_ticket_id' => $ticket->id,
                 ],
-                'quantity' => 1,
-            ]],
-            'mode' => 'payment',
-            'success_url' => config('app.frontend_url', 'http://localhost:3000') . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url' => config('app.frontend_url', 'http://localhost:3000') . '/payment/cancel',
-            'client_reference_id' => $user->id,
-            'metadata' => [
-                'operational_ticket_id' => $ticket->id,
-            ],
-            'customer_email' => $user->email,
-        ]);
+                'customer_email' => $user->email,
+            ]);
 
-        return response()->json(['url' => $session->url]);
+            return response()->json(['url' => $session->url]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Stripe error: ' . $e->getMessage());
+            return response()->json(['error' => 'Stripe error: ' . $e->getMessage()], 500);
+        }
     }
 }
