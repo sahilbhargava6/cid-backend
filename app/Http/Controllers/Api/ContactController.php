@@ -23,7 +23,17 @@ class ContactController extends Controller
 
         try {
             $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
-            $adminEmail = !empty($admins) ? $admins : 'info@consider-itdone.com';
+            $recipients = !empty($admins) ? $admins : [];
+
+            $siteConfig = \App\Models\SiteSetting::where('key', 'site_config')->first();
+            if ($siteConfig && !empty($siteConfig->value['contactEmail'])) {
+                $recipients[] = $siteConfig->value['contactEmail'];
+            }
+
+            $recipients = array_values(array_unique(array_filter($recipients)));
+            if (empty($recipients)) {
+                $recipients = ['service@consider-itdone.com'];
+            }
 
             Mail::raw(
                 "Hello Admin,\n\n" .
@@ -35,8 +45,8 @@ class ContactController extends Controller
                 "Message:\n" .
                 "\"{$request->message}\"\n\n" .
                 "Best regards,\nconsider-itdone Contact Form",
-                function ($message) use ($request, $adminEmail) {
-                    $message->to($adminEmail)
+                function ($message) use ($request, $recipients) {
+                    $message->to($recipients)
                             ->replyTo($request->email)
                             ->subject("New Contact Form Inquiry from {$request->name}");
                 }
