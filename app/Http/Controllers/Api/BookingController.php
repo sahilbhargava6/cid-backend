@@ -60,8 +60,8 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'service_type' => 'required|string|in:tax_prep,virtual_bookkeeping,solar,accounts_and_logistics,procurement,tax_preparation',
-            'scheduled_at' => 'nullable|date',
+            'service_type' => 'required|string|in:tax_prep,virtual_bookkeeping,bookkeeping,solar,accounts_and_logistics,small_business,procurement,tax_preparation',
+            'scheduled_at' => 'nullable|string',
             'organization_id' => 'nullable|exists:organizations,id',
             'input_parameters' => 'required|array',
             'price' => 'nullable|numeric',
@@ -70,14 +70,19 @@ class BookingController extends Controller
 
         $timezone = $request->timezone ?? 'UTC';
         $scheduledAtUtc = null;
-        if ($request->scheduled_at) {
+        if (!empty($request->scheduled_at)) {
             try {
-                $scheduledAtUtc = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $request->scheduled_at, $timezone)
+                $scheduledAtUtc = \Carbon\Carbon::parse($request->scheduled_at, $timezone)
                     ->setTimezone('UTC');
             } catch (\Exception $e) {
                 return response()->json(['message' => 'Invalid date format.'], 400);
             }
         }
+
+        $serviceType = $request->service_type;
+        if ($serviceType === 'bookkeeping') $serviceType = 'virtual_bookkeeping';
+        if ($serviceType === 'small_business') $serviceType = 'accounts_and_logistics';
+        if ($serviceType === 'tax_preparation') $serviceType = 'tax_prep';
 
         if ($scheduledAtUtc) {
             $existing = OperationalTicket::where('scheduled_at', $scheduledAtUtc)
@@ -91,7 +96,7 @@ class BookingController extends Controller
         $ticket = OperationalTicket::create([
             'user_id' => $request->user()->id,
             'organization_id' => $request->organization_id,
-            'service_type' => $request->service_type,
+            'service_type' => $serviceType,
             'scheduled_at' => $scheduledAtUtc,
             'status' => 'pending',
             'payment_status' => 'unpaid',
