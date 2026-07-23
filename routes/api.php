@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/users', [AuthController::class, 'index']);
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
 
     // Site Settings
     Route::post('/settings/{key}', [SettingsController::class, 'update']);

@@ -108,4 +108,43 @@ class AuthController extends Controller
         $user->delete();
         return response()->json(['message' => 'User deleted successfully.']);
     }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+        ];
+
+        if ($request->filled('password')) {
+            $rules['password'] = [
+                'required',
+                'string',
+                Password::min(8)->letters()->mixedCase()->numbers()->symbols()->uncompromised()
+            ];
+            $rules['current_password'] = 'required';
+        }
+
+        $request->validate($rules);
+
+        if ($request->filled('password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['The provided password does not match your current password.'],
+                ]);
+            }
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $user
+        ]);
+    }
 }
