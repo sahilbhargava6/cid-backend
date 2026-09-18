@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContactInquiry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class ContactController extends Controller
 {
     /**
-     * Submit contact form and notify admin
+     * Submit contact form, store inquiry in DB, and notify admin via email
      */
     public function submit(Request $request)
     {
@@ -21,6 +22,20 @@ class ContactController extends Controller
             'message' => 'required|string|max:5000',
         ]);
 
+        // 1. Store inquiry in database
+        try {
+            $inquiry = ContactInquiry::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'message' => $request->message,
+                'status' => 'pending',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to save contact inquiry to database: ' . $e->getMessage());
+        }
+
+        // 2. Dispatch notification email to admin
         try {
             $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
             $recipients = !empty($admins) ? $admins : [];
@@ -35,6 +50,9 @@ class ContactController extends Controller
                 $recipients = ['service@consider-itdone.com'];
             }
 
+            $fromAddress = config('mail.from.address', 'service@consider-itdone.com');
+            $fromName = config('mail.from.name', 'consider-itdone Contact Form');
+
             Mail::raw(
                 "Hello Admin,\n\n" .
                 "You have received a new contact inquiry from the consider-itdone website.\n\n" .
@@ -45,15 +63,17 @@ class ContactController extends Controller
                 "Message:\n" .
                 "\"{$request->message}\"\n\n" .
                 "Best regards,\nconsider-itdone Contact Form",
-                function ($message) use ($request, $recipients) {
-                    $message->to($recipients)
+                function ($message) use ($request, $recipients, $fromAddress, $fromName) {
+                    $message->from($fromAddress, $fromName)
+                            ->to($recipients)
                             ->replyTo($request->email)
                             ->subject("New Contact Form Inquiry from {$request->name}");
                 }
             );
+
+            Log::info("Contact inquiry email dispatched successfully for: {$request->email}");
         } catch (\Exception $e) {
             Log::error('Failed to send contact form email: ' . $e->getMessage());
-            // We can still return success because the backend received the inquiry
         }
 
         return response()->json([
