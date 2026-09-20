@@ -24,7 +24,7 @@ class ContactController extends Controller
 
         // 1. Store inquiry in database
         try {
-            $inquiry = ContactInquiry::create([
+            ContactInquiry::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
@@ -35,46 +35,53 @@ class ContactController extends Controller
             Log::error('Failed to save contact inquiry to database: ' . $e->getMessage());
         }
 
-        // 2. Dispatch notification email to admin
-        try {
-            $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
-            $recipients = !empty($admins) ? $admins : [];
+        // 2. Register email sending to happen AFTER HTTP response is sent to client
+        $name = $request->name;
+        $email = $request->email;
+        $phone = $request->phone;
+        $userMessage = $request->message;
 
-            $siteConfig = \App\Models\SiteSetting::where('key', 'site_config')->first();
-            if ($siteConfig && !empty($siteConfig->value['contactEmail'])) {
-                $recipients[] = $siteConfig->value['contactEmail'];
-            }
+        app()->terminating(function () use ($name, $email, $phone, $userMessage) {
+            try {
+                $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
+                $recipients = !empty($admins) ? $admins : [];
 
-            $recipients = array_values(array_unique(array_filter($recipients)));
-            if (empty($recipients)) {
-                $recipients = ['service@consider-itdone.com'];
-            }
-
-            $fromAddress = config('mail.from.address', 'service@consider-itdone.com');
-            $fromName = config('mail.from.name', 'consider-itdone Contact Form');
-
-            Mail::raw(
-                "Hello Admin,\n\n" .
-                "You have received a new contact inquiry from the consider-itdone website.\n\n" .
-                "Inquiry Details:\n" .
-                "- Name: {$request->name}\n" .
-                "- Email: {$request->email}\n" .
-                "- Phone: " . ($request->phone ?? 'N/A') . "\n\n" .
-                "Message:\n" .
-                "\"{$request->message}\"\n\n" .
-                "Best regards,\nconsider-itdone Contact Form",
-                function ($message) use ($request, $recipients, $fromAddress, $fromName) {
-                    $message->from($fromAddress, $fromName)
-                            ->to($recipients)
-                            ->replyTo($request->email)
-                            ->subject("New Contact Form Inquiry from {$request->name}");
+                $siteConfig = \App\Models\SiteSetting::where('key', 'site_config')->first();
+                if ($siteConfig && !empty($siteConfig->value['contactEmail'])) {
+                    $recipients[] = $siteConfig->value['contactEmail'];
                 }
-            );
 
-            Log::info("Contact inquiry email dispatched successfully for: {$request->email}");
-        } catch (\Throwable $e) {
-            Log::error('Failed to send contact form email: ' . $e->getMessage());
-        }
+                $recipients = array_values(array_unique(array_filter($recipients)));
+                if (empty($recipients)) {
+                    $recipients = ['service@consider-itdone.com'];
+                }
+
+                $fromAddress = config('mail.from.address', 'service@consider-itdone.com');
+                $fromName = config('mail.from.name', 'consider-itdone Contact Form');
+
+                Mail::raw(
+                    "Hello Admin,\n\n" .
+                    "You have received a new contact inquiry from the consider-itdone website.\n\n" .
+                    "Inquiry Details:\n" .
+                    "- Name: {$name}\n" .
+                    "- Email: {$email}\n" .
+                    "- Phone: " . ($phone ?? 'N/A') . "\n\n" .
+                    "Message:\n" .
+                    "\"{$userMessage}\"\n\n" .
+                    "Best regards,\nconsider-itdone Contact Form",
+                    function ($message) use ($name, $email, $recipients, $fromAddress, $fromName) {
+                        $message->from($fromAddress, $fromName)
+                                ->to($recipients)
+                                ->replyTo($email)
+                                ->subject("New Contact Form Inquiry from {$name}");
+                    }
+                );
+
+                Log::info("Contact inquiry email dispatched successfully for: {$email}");
+            } catch (\Throwable $e) {
+                Log::error('Failed to send contact form email: ' . $e->getMessage());
+            }
+        });
 
         return response()->json([
             'success' => true,
