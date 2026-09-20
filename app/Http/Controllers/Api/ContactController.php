@@ -43,6 +43,7 @@ class ContactController extends Controller
 
         app()->terminating(function () use ($name, $email, $phone, $userMessage) {
             try {
+                ini_set('default_socket_timeout', 2);
                 $admins = \App\Models\User::whereIn('role', ['admin', 'owner'])->pluck('email')->toArray();
                 $recipients = !empty($admins) ? $admins : [];
 
