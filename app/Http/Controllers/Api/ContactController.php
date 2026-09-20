@@ -31,7 +31,7 @@ class ContactController extends Controller
                 'message' => $request->message,
                 'status' => 'pending',
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to save contact inquiry to database: ' . $e->getMessage());
         }
 
@@ -72,7 +72,7 @@ class ContactController extends Controller
             );
 
             Log::info("Contact inquiry email dispatched successfully for: {$request->email}");
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send contact form email: ' . $e->getMessage());
         }
 
