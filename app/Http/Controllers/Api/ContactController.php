@@ -89,4 +89,68 @@ class ContactController extends Controller
             'message' => 'Your inquiry has been successfully received. We will contact you shortly.'
         ]);
     }
+
+    /**
+     * Admin: List all contact inquiries
+     */
+    public function index(Request $request)
+    {
+        $query = ContactInquiry::query()->orderBy('created_at', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('message', 'like', "%{$search}%");
+            });
+        }
+
+        $inquiries = $query->paginate($request->get('per_page', 20));
+
+        return response()->json($inquiries);
+    }
+
+    /**
+     * Admin: Update contact inquiry status
+     */
+    public function update(Request $request, $id)
+    {
+        $inquiry = ContactInquiry::findOrFail($id);
+
+        $request->validate([
+            'status' => 'nullable|string|in:pending,contacted,resolved,archived',
+        ]);
+
+        if ($request->has('status')) {
+            $inquiry->status = $request->status;
+        }
+
+        $inquiry->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Inquiry updated successfully',
+            'inquiry' => $inquiry
+        ]);
+    }
+
+    /**
+     * Admin: Delete contact inquiry
+     */
+    public function destroy($id)
+    {
+        $inquiry = ContactInquiry::findOrFail($id);
+        $inquiry->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Inquiry deleted successfully'
+        ]);
+    }
 }

@@ -48,6 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Live Chat Messages
     Route::get('/bookings/{id}/messages', [\App\Http\Controllers\Api\MessageController::class, 'index']);
     Route::post('/bookings/{id}/messages', [\App\Http\Controllers\Api\MessageController::class, 'store']);
+
+    // Contact Form Inquiries Management
+    Route::get('/contact-inquiries', [\App\Http\Controllers\Api\ContactController::class, 'index']);
+    Route::put('/contact-inquiries/{id}', [\App\Http\Controllers\Api\ContactController::class, 'update']);
+    Route::delete('/contact-inquiries/{id}', [\App\Http\Controllers\Api\ContactController::class, 'destroy']);
 });
 
 // Decryption download endpoints (handles manual token verification in controller for direct link/iframe access)
