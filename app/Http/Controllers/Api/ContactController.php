@@ -153,4 +153,49 @@ class ContactController extends Controller
             'message' => 'Inquiry deleted successfully'
         ]);
     }
+
+    /**
+     * Admin: Send email reply directly to customer
+     */
+    public function reply(Request $request, $id)
+    {
+        $inquiry = ContactInquiry::findOrFail($id);
+
+        $request->validate([
+            'reply_message' => 'required|string|max:5000',
+            'subject' => 'nullable|string|max:255',
+        ]);
+
+        $subject = $request->input('subject', "Re: Your inquiry on consider-itdone");
+        $replyContent = $request->reply_message;
+        $customerEmail = $inquiry->email;
+        $customerName = $inquiry->name;
+
+        try {
+            $fromAddress = config('mail.from.address', 'service@consider-itdone.com');
+            $fromName = config('mail.from.name', 'consider-itdone');
+
+            Mail::raw($replyContent, function ($message) use ($customerEmail, $customerName, $subject, $fromAddress, $fromName) {
+                $message->from($fromAddress, $fromName)
+                        ->to($customerEmail, $customerName)
+                        ->subject($subject);
+            });
+
+            // Update status to 'contacted'
+            $inquiry->status = 'contacted';
+            $inquiry->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Reply sent successfully to {$customerEmail}!",
+                'inquiry' => $inquiry,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to send reply email: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send reply email: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

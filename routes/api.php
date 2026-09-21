@@ -53,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/contact-inquiries', [\App\Http\Controllers\Api\ContactController::class, 'index']);
     Route::put('/contact-inquiries/{id}', [\App\Http\Controllers\Api\ContactController::class, 'update']);
     Route::delete('/contact-inquiries/{id}', [\App\Http\Controllers\Api\ContactController::class, 'destroy']);
+    Route::post('/contact-inquiries/{id}/reply', [\App\Http\Controllers\Api\ContactController::class, 'reply']);
 });
 
 // Decryption download endpoints (handles manual token verification in controller for direct link/iframe access)
